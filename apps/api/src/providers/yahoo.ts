@@ -1,21 +1,35 @@
 import yahooFinance from "yahoo-finance2";
-import type { Candle, Interval, Quote } from "@autostock/shared";
+import type { Candle, Interval, Market, Quote } from "@autostock/shared";
+import { findSymbol } from "../catalog/index.js";
 
 yahooFinance.suppressNotices(["yahooSurvey"]);
 
-export async function getUsQuote(symbol: string): Promise<Quote> {
-  const q = await yahooFinance.quote(symbol);
+// Map our (market, symbol) tuple to Yahoo's ticker format.
+//   KR + KOSPI  → "005930.KS"
+//   KR + KOSDAQ → "086520.KQ"
+//   US          → "AAPL"
+export function toYahooTicker(market: Market, symbol: string): string {
+  if (market !== "KR") return symbol;
+  const info = findSymbol("KR", symbol);
+  if (info?.exchange === "KOSDAQ") return `${symbol}.KQ`;
+  // Default KR to KOSPI suffix when unknown.
+  return `${symbol}.KS`;
+}
+
+export async function getQuote(market: Market, symbol: string): Promise<Quote> {
+  const ticker = toYahooTicker(market, symbol);
+  const q = await yahooFinance.quote(ticker);
   const price = Number(q.regularMarketPrice ?? 0);
   const prev = Number(q.regularMarketPreviousClose ?? 0);
   return {
     symbol,
-    market: "US",
+    market,
     price,
     change: Number(q.regularMarketChange ?? price - prev),
     changePct: Number(q.regularMarketChangePercent ?? 0),
     prevClose: prev,
     asOf: Math.floor(Date.now() / 1000),
-    source: "Yahoo",
+    source: market === "KR" ? "Yahoo (지연)" : "Yahoo",
   };
 }
 
@@ -29,10 +43,11 @@ const intervalMap: Record<Interval, { interval: ChartInterval; lookbackDays: num
   "1d":  { interval: "1d",  lookbackDays: 730 },
 };
 
-export async function getUsCandles(symbol: string, interval: Interval, limit = 200): Promise<Candle[]> {
+export async function getCandles(market: Market, symbol: string, interval: Interval, limit = 200): Promise<Candle[]> {
+  const ticker = toYahooTicker(market, symbol);
   const m = intervalMap[interval];
   const period1 = new Date(Date.now() - m.lookbackDays * 86400_000);
-  const result = await yahooFinance.chart(symbol, {
+  const result = await yahooFinance.chart(ticker, {
     period1,
     interval: m.interval,
   });

@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { getKrCandles } from "../providers/kis.js";
-import { getUsCandles } from "../providers/usMarket.js";
+import { getCandles } from "../providers/yahoo.js";
 import type { Interval, Market } from "@autostock/shared";
 import { ALL_INTERVALS } from "@autostock/shared";
 
@@ -16,10 +15,12 @@ export async function registerCandlesRoute(app: FastifyInstance) {
       reply.code(400);
       return { error: "invalid interval" };
     }
+    if (market !== "KR" && market !== "US") {
+      reply.code(400);
+      return { error: "unknown market" };
+    }
     try {
-      const candles = market === "KR"
-        ? await getKrCandles(symbol, interval, limit)
-        : await getUsCandles(symbol, interval, limit);
+      const candles = await getCandles(market, symbol, interval, limit);
       return { symbol, market, interval, candles };
     } catch (err: unknown) {
       app.log.error({ err }, "candles failed");

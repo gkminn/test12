@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { getKrCandles } from "../providers/kis.js";
-import { getUsCandles, getUsQuote } from "../providers/usMarket.js";
+import { getCandles, getQuote } from "../providers/yahoo.js";
 import { buildReasoning } from "../indicators/index.js";
 import type { Interval, Market } from "@autostock/shared";
 import { ALL_INTERVALS } from "@autostock/shared";
@@ -9,8 +8,8 @@ async function getMarketContext(market: Market) {
   try {
     if (market === "KR") {
       const [kospi, fx] = await Promise.all([
-        getUsQuote("^KS11").catch(() => null),
-        getUsQuote("KRW=X").catch(() => null),
+        getQuote("US", "^KS11").catch(() => null),
+        getQuote("US", "KRW=X").catch(() => null),
       ]);
       return {
         marketIndexChangePct: kospi?.changePct ?? 0,
@@ -18,7 +17,7 @@ async function getMarketContext(market: Market) {
         policyRate: 2.5,
       };
     }
-    const spy = await getUsQuote("SPY").catch(() => null);
+    const spy = await getQuote("US", "SPY").catch(() => null);
     return {
       marketIndexChangePct: spy?.changePct ?? 0,
       policyRate: 4.5,
@@ -39,10 +38,12 @@ export async function registerIndicatorsRoute(app: FastifyInstance) {
       reply.code(400);
       return { error: "invalid interval" };
     }
+    if (market !== "KR" && market !== "US") {
+      reply.code(400);
+      return { error: "unknown market" };
+    }
     try {
-      const candles = market === "KR"
-        ? await getKrCandles(symbol, interval, 200)
-        : await getUsCandles(symbol, interval, 200);
+      const candles = await getCandles(market, symbol, interval, 200);
       const macro = await getMarketContext(market);
       return buildReasoning(symbol, market, interval, candles, macro);
     } catch (err: unknown) {

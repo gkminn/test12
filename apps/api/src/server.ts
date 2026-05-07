@@ -27,8 +27,7 @@ async function main() {
   app.get("/api/health", async () => ({
     ok: true,
     hasAnthropic: Boolean(env.ANTHROPIC_API_KEY),
-    hasKis: Boolean(env.KIS_APP_KEY && env.KIS_APP_SECRET),
-    env: env.KIS_ENV,
+    dataSource: "yahoo",
   }));
 
   await app.listen({ port: env.PORT_API, host: "0.0.0.0" });

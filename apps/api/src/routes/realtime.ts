@@ -1,10 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { getKrQuote } from "../providers/kis.js";
-import { getUsQuote } from "../providers/usMarket.js";
+import { getQuote } from "../providers/yahoo.js";
 import type { Market } from "@autostock/shared";
 
 export async function registerRealtimeRoute(app: FastifyInstance) {
-  app.get("/ws/quote", { websocket: true }, (socket /* WebSocket */, req) => {
+  app.get("/ws/quote", { websocket: true }, (socket, req) => {
     const url = new URL(req.url, "http://localhost");
     const market = (url.searchParams.get("market") as Market) ?? "KR";
     const symbol = url.searchParams.get("symbol") ?? "";
@@ -16,12 +15,12 @@ export async function registerRealtimeRoute(app: FastifyInstance) {
     const tick = async () => {
       while (alive) {
         try {
-          const q = market === "KR" ? await getKrQuote(symbol) : await getUsQuote(symbol);
+          const q = await getQuote(market, symbol);
           socket.send(JSON.stringify({ type: "quote", quote: q }));
         } catch (err) {
           socket.send(JSON.stringify({ type: "error", error: (err as Error).message }));
         }
-        await new Promise(r => setTimeout(r, market === "KR" ? 2000 : 5000));
+        await new Promise(r => setTimeout(r, 5000));
       }
     };
     tick();

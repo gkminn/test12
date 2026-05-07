@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { getKrCandles } from "../providers/kis.js";
-import { getUsCandles, getUsQuote } from "../providers/usMarket.js";
+import { getCandles, getQuote } from "../providers/yahoo.js";
 import { buildReasoning } from "../indicators/index.js";
 import { predict } from "../ai/claude.js";
 import { findSymbol } from "../catalog/index.js";
@@ -21,17 +20,15 @@ export async function registerPredictRoute(app: FastifyInstance) {
       return { error: "missing market/symbol/interval" };
     }
     try {
-      const candles = market === "KR"
-        ? await getKrCandles(symbol, interval, 200)
-        : await getUsCandles(symbol, interval, 200);
+      const candles = await getCandles(market, symbol, interval, 200);
       const macro = market === "KR"
         ? {
-            marketIndexChangePct: (await getUsQuote("^KS11").catch(() => null))?.changePct ?? 0,
-            fxKrwUsd: (await getUsQuote("KRW=X").catch(() => null))?.price ?? 1300,
+            marketIndexChangePct: (await getQuote("US", "^KS11").catch(() => null))?.changePct ?? 0,
+            fxKrwUsd: (await getQuote("US", "KRW=X").catch(() => null))?.price ?? 1300,
             policyRate: 2.5,
           }
         : {
-            marketIndexChangePct: (await getUsQuote("SPY").catch(() => null))?.changePct ?? 0,
+            marketIndexChangePct: (await getQuote("US", "SPY").catch(() => null))?.changePct ?? 0,
             policyRate: 4.5,
           };
       const reasoning = buildReasoning(symbol, market, interval, candles, macro);

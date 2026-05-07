@@ -4,11 +4,15 @@
 
 ```
 apps/
-  api/    Fastify + KIS Open API + yahoo-finance2 + Claude
+  api/    Fastify + yahoo-finance2 + Claude
   web/    Vite + React + TypeScript + lightweight-charts
 packages/
   shared/ 양쪽이 공유하는 타입
 ```
+
+데이터는 **Yahoo Finance** 한 곳에서 가져옵니다. 한국 종목은 코드 뒤에
+`.KS`(KOSPI) / `.KQ`(KOSDAQ) 를 자동으로 붙여 호출하므로 별도 증권 계좌나
+KIS API 키가 필요하지 않습니다. (15~20분 지연 시세)
 
 ## 빠른 시작
 
@@ -16,11 +20,9 @@ packages/
 # 1) 의존성 설치
 npm install
 
-# 2) 환경변수 설정
+# 2) (선택) Anthropic 키만 채우면 끝
 cp .env.example .env
 #   ANTHROPIC_API_KEY=sk-ant-...
-#   KIS_APP_KEY=, KIS_APP_SECRET=, KIS_ACCOUNT_NO=
-#   KIS_ENV=prod  (또는 vts 모의투자)
 
 # 3) 동시 기동 (web=5173, api=5174)
 npm run dev
@@ -30,7 +32,7 @@ npm run dev
 
 ## 주요 화면
 
-- 실시간 현재가 헤더 (KIS WS 또는 Yahoo 폴링)
+- 실시간(폴링) 현재가 헤더
 - 1m / 5m / 15m / 1h / 1d 인터벌 전환
 - 캔들 차트 위에 Claude의 상승·하락 시나리오, 기준선, 신뢰 밴드, 적중률 뱃지
 - 하단 탭: 예측 / 근거 / 즐겨찾기 / 개선 / 챗봇
@@ -41,8 +43,6 @@ npm run dev
 | Name | 설명 |
 |---|---|
 | `ANTHROPIC_API_KEY` | 미설정 시 ATR 기반 합성 시나리오로 fallback |
-| `KIS_APP_KEY` / `KIS_APP_SECRET` | 미설정 시 KR 종목은 502 (US는 Yahoo로 정상 동작) |
-| `KIS_ENV` | `prod` 또는 `vts`(모의투자) |
 | `PORT_API` | 기본 5174 |
 
 ## 테스트
