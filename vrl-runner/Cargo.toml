@@ -22,3 +22,8 @@ getrandom = { version = "0.2", features = ["js"] }
 opt-level = "s"
 lto = true
 codegen-units = 1
+
+# wasm-opt downloads a binary at build time which can fail in offline/sandboxed
+# environments. Disable; opt-level="s" + lto already keeps the size reasonable.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
