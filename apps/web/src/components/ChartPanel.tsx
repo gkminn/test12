@@ -229,6 +229,9 @@ export function ChartPanel({ candles, prediction, interval, height = 460 }: Prop
         text: `적중 ${prediction.hitRate}%`,
       },
     ]);
+
+    // Extend time scale to show full prediction range
+    chartRef.current?.timeScale().fitContent();
   }, [prediction, candles]);
 
   const summary = useMemo(() => prediction?.summary, [prediction]);

@@ -66,6 +66,8 @@ export interface Prediction {
   interval: Interval;
   trend: "bull" | "bear" | "neutral";
   hitRate: number;            // 0-100
+  bullProb: number;           // 0-100, probability of bullish outcome
+  bearProb: number;           // 0-100, probability of bearish outcome
   startTime: number;          // first predicted bar's open time (unix s)
   step: number;               // seconds between bars
   path: PredictionPath;

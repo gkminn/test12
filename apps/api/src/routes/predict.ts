@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { getCandles, getQuote } from "../providers/yahoo.js";
+import { getCandles, getQuote, getNews } from "../providers/yahoo.js";
 import { buildReasoning } from "../indicators/index.js";
 import { predict } from "../ai/claude.js";
 import { findSymbol } from "../catalog/index.js";
@@ -20,16 +20,23 @@ export async function registerPredictRoute(app: FastifyInstance) {
       return { error: "missing market/symbol/interval" };
     }
     try {
-      const candles = await getCandles(market, symbol, interval, 200);
+      const [candles, news] = await Promise.all([
+        getCandles(market, symbol, interval, 200),
+        getNews(market, symbol),
+      ]);
       const macro = market === "KR"
         ? {
             marketIndexChangePct: (await getQuote("US", "^KS11").catch(() => null))?.changePct ?? 0,
             fxKrwUsd: (await getQuote("US", "KRW=X").catch(() => null))?.price ?? 1300,
             policyRate: 2.5,
+            newsCount24h: news.count,
+            newsSentiment: news.sentiment,
           }
         : {
             marketIndexChangePct: (await getQuote("US", "SPY").catch(() => null))?.changePct ?? 0,
             policyRate: 4.5,
+            newsCount24h: news.count,
+            newsSentiment: news.sentiment,
           };
       const reasoning = buildReasoning(symbol, market, interval, candles, macro);
       const info = findSymbol(market, symbol);

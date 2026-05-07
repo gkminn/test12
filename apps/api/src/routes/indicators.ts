@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { getCandles, getQuote } from "../providers/yahoo.js";
+import { getCandles, getQuote, getNews } from "../providers/yahoo.js";
 import { buildReasoning } from "../indicators/index.js";
 import type { Interval, Market } from "@autostock/shared";
 import { ALL_INTERVALS } from "@autostock/shared";
@@ -43,9 +43,16 @@ export async function registerIndicatorsRoute(app: FastifyInstance) {
       return { error: "unknown market" };
     }
     try {
-      const candles = await getCandles(market, symbol, interval, 200);
-      const macro = await getMarketContext(market);
-      return buildReasoning(symbol, market, interval, candles, macro);
+      const [candles, news, macro] = await Promise.all([
+        getCandles(market, symbol, interval, 200),
+        getNews(market, symbol),
+        getMarketContext(market),
+      ]);
+      return buildReasoning(symbol, market, interval, candles, {
+        ...macro,
+        newsCount24h: news.count,
+        newsSentiment: news.sentiment,
+      });
     } catch (err: unknown) {
       app.log.error({ err }, "indicators failed");
       reply.code(502);

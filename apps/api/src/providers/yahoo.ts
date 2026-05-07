@@ -83,6 +83,42 @@ const intervalMap: Record<Interval, { interval: ChartInterval; lookbackDays: num
   "1d":  { interval: "1d",  lookbackDays: 730, cacheTtlMs: 600_000  },
 };
 
+const POSITIVE_KW = ["급등","상승","돌파","강세","매수","호실적","성장","확대","신고가","반등","흑자","수주","계약","어닝","서프라이즈","surges","rises","beats","strong","buy","upgrade","bullish","growth","record","profit","beat","rally","soars","gains"];
+const NEGATIVE_KW = ["급락","하락","부진","약세","매도","손실","감소","경고","위험","적자","소송","제재","폭락","실망","falls","drops","misses","weak","sell","downgrade","bearish","loss","warning","risk","lawsuit","penalty","decline","plunges","slumps"];
+
+function scoreNewsSentiment(titles: string[]): number {
+  if (titles.length === 0) return 0;
+  let score = 0;
+  for (const title of titles) {
+    const lower = title.toLowerCase();
+    for (const w of POSITIVE_KW) if (lower.includes(w)) score += 1;
+    for (const w of NEGATIVE_KW) if (lower.includes(w)) score -= 1;
+  }
+  return Math.max(-1, Math.min(1, score / titles.length));
+}
+
+export interface NewsResult { count: number; sentiment: number; titles: string[] }
+
+export async function getNews(market: Market, symbol: string): Promise<NewsResult> {
+  const ticker = toYahooTicker(market, symbol);
+  const cacheKey = `news:${ticker}`;
+  const cached = cacheGet<NewsResult>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const result = await withRetry(
+      () => yahooFinance.search(ticker, { newsCount: 20, quotesCount: 0 }, MODULE_OPTS as never),
+    );
+    const news = (result as { news?: { title?: string }[] }).news ?? [];
+    const titles = news.map((n) => n.title ?? "").filter(Boolean);
+    const output: NewsResult = { count: titles.length, sentiment: scoreNewsSentiment(titles), titles };
+    cacheSet(cacheKey, output, 300_000);
+    return output;
+  } catch {
+    return { count: 0, sentiment: 0, titles: [] };
+  }
+}
+
 export async function getCandles(market: Market, symbol: string, interval: Interval, limit = 200): Promise<Candle[]> {
   const ticker = toYahooTicker(market, symbol);
   const m = intervalMap[interval];

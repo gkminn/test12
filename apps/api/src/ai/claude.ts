@@ -66,10 +66,12 @@ const TOOL = {
   description: "Emit the structured price-path forecast.",
   input_schema: {
     type: "object" as const,
-    required: ["trend", "hitRate", "baseline", "bullPath", "bearPath", "confidenceUpper", "confidenceLower", "factors", "summary"],
+    required: ["trend", "hitRate", "bullProb", "bearProb", "baseline", "bullPath", "bearPath", "confidenceUpper", "confidenceLower", "factors", "summary"],
     properties: {
       trend: { type: "string", enum: ["bull", "bear", "neutral"] },
       hitRate: { type: "number", minimum: 0, maximum: 100 },
+      bullProb: { type: "number", minimum: 0, maximum: 100, description: "Probability of bullish outcome (0-100). bullProb + bearProb must equal 100." },
+      bearProb: { type: "number", minimum: 0, maximum: 100, description: "Probability of bearish outcome (0-100)." },
       baseline: { type: "array", items: { type: "number" } },
       bullPath: { type: "array", items: { type: "number" } },
       bearPath: { type: "array", items: { type: "number" } },
@@ -175,6 +177,8 @@ ${JSON.stringify(userPayload)}`;
   const out = toolBlock.input as {
     trend: "bull" | "bear" | "neutral";
     hitRate: number;
+    bullProb: number;
+    bearProb: number;
     baseline: number[];
     bullPath: number[];
     bearPath: number[];
@@ -193,12 +197,20 @@ ${JSON.stringify(userPayload)}`;
     return padded.map(safeNum(lastClose));
   };
 
+  const rawBull = clamp(Math.round(out.bullProb ?? 50), 0, 100);
+  const rawBear = clamp(Math.round(out.bearProb ?? 100 - rawBull), 0, 100);
+  const total = rawBull + rawBear;
+  const bullProb = total === 0 ? 50 : Math.round((rawBull / total) * 100);
+  const bearProb = 100 - bullProb;
+
   const result: Prediction = {
     symbol,
     market,
     interval,
     trend: out.trend,
     hitRate: clamp(Math.round(out.hitRate ?? 50), 0, 100),
+    bullProb,
+    bearProb,
     startTime,
     step,
     path: {
@@ -256,12 +268,19 @@ function synthesizeFallback(args: PredictArgs): Prediction {
     lower.push(lastClose + drift - widen);
   }
 
+  const totalScore = reasoning.factors.reduce((s, f) => s + f.score, 0);
+  const maxScore = reasoning.factors.length * 100;
+  const normalized = maxScore === 0 ? 0 : totalScore / maxScore;
+  const bullProb = Math.round(clamp(50 + normalized * 35, 15, 85));
+
   return {
     symbol,
     market,
     interval,
     trend: trendScore > 5 ? "bull" : trendScore < -5 ? "bear" : "neutral",
     hitRate: 60,
+    bullProb,
+    bearProb: 100 - bullProb,
     startTime,
     step,
     path: { baseline, bull, bear, upper, lower },
