@@ -4,6 +4,17 @@ import { findSymbol } from "../catalog/index.js";
 
 yahooFinance.suppressNotices(["yahooSurvey"]);
 
+// Mimic a real browser to avoid Yahoo Finance 429 rate limiting
+yahooFinance.setGlobalConfig({
+  fetchOptions: {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
+    },
+  },
+});
+
 // Simple in-memory cache to avoid hammering Yahoo Finance
 interface CacheEntry<T> { data: T; expiresAt: number }
 const cache = new Map<string, CacheEntry<unknown>>();
@@ -19,7 +30,7 @@ function cacheSet<T>(key: string, data: T, ttlMs: number) {
   cache.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
 
-async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, retries = 4, delayMs = 2000): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();
@@ -59,7 +70,7 @@ export async function getQuote(market: Market, symbol: string): Promise<Quote> {
     asOf: Math.floor(Date.now() / 1000),
     source: market === "KR" ? "Yahoo (지연)" : "Yahoo",
   };
-  cacheSet(cacheKey, result, 30_000); // 30s cache for quotes
+  cacheSet(cacheKey, result, 30_000);
   return result;
 }
 
