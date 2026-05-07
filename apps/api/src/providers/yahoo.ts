@@ -5,15 +5,14 @@ import { findSymbol } from "../catalog/index.js";
 yahooFinance.suppressNotices(["yahooSurvey"]);
 
 // Mimic a real browser to avoid Yahoo Finance 429 rate limiting
-yahooFinance.setGlobalConfig({
+const MODULE_OPTS = {
   fetchOptions: {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
     },
   },
-});
+} as const;
 
 // Simple in-memory cache to avoid hammering Yahoo Finance
 interface CacheEntry<T> { data: T; expiresAt: number }
@@ -57,7 +56,7 @@ export async function getQuote(market: Market, symbol: string): Promise<Quote> {
   const cached = cacheGet<Quote>(cacheKey);
   if (cached) return cached;
 
-  const q = await withRetry(() => yahooFinance.quote(ticker));
+  const q = await withRetry(() => yahooFinance.quote(ticker, {}, MODULE_OPTS));
   const price = Number(q.regularMarketPrice ?? 0);
   const prev = Number(q.regularMarketPreviousClose ?? 0);
   const result: Quote = {
@@ -92,7 +91,7 @@ export async function getCandles(market: Market, symbol: string, interval: Inter
   if (cached) return cached.slice(-limit);
 
   const period1 = new Date(Date.now() - m.lookbackDays * 86400_000);
-  const result = await withRetry(() => yahooFinance.chart(ticker, { period1, interval: m.interval }));
+  const result = await withRetry(() => yahooFinance.chart(ticker, { period1, interval: m.interval }, MODULE_OPTS));
   const quotes = result.quotes ?? [];
   const candles: Candle[] = [];
   for (const q of quotes) {
